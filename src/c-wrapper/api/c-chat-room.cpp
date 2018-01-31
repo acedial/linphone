@@ -28,9 +28,6 @@
 #include "address/identity-address.h"
 #include "c-wrapper/c-wrapper.h"
 #include "chat/chat-message/chat-message-p.h"
-#include "chat/chat-room/basic-chat-room.h"
-#include "chat/chat-room/client-group-chat-room-p.h"
-#include "chat/chat-room/client-group-to-basic-chat-room.h"
 #include "chat/chat-room/real-time-text-chat-room-p.h"
 #include "chat/chat-room/server-group-chat-room-p.h"
 #include "conference/participant.h"
@@ -413,39 +410,6 @@ void linphone_chat_room_set_user_data (LinphoneChatRoom *cr, void *ud) {
 // =============================================================================
 // Constructor and destructor functions.
 // =============================================================================
-
-LinphoneChatRoom *_linphone_client_group_chat_room_new (LinphoneCore *core, const char *uri, const char *subject, bool_t fallback) {
-	LinphoneAddress *addr = linphone_address_new(uri);
-	LinphoneProxyConfig *proxy = linphone_core_lookup_known_proxy(core, addr);
-	linphone_address_unref(addr);
-	string from;
-	if (proxy) {
-		const LinphoneAddress *contactAddr = linphone_proxy_config_get_contact(proxy);
-		if (contactAddr) {
-			char *cFrom = linphone_address_as_string(contactAddr);
-			from = string(cFrom);
-			bctbx_free(cFrom);
-		} else {
-			from = L_GET_CPP_PTR_FROM_C_OBJECT(linphone_proxy_config_get_identity_address(proxy))->asString();
-		}
-	}
-	if (from.empty())
-		from = linphone_core_get_primary_contact(core);
-	LinphonePrivate::IdentityAddress me(from);
-	shared_ptr<LinphonePrivate::ClientGroupChatRoom> cgcr = make_shared<LinphonePrivate::ClientGroupChatRoom>(
-		L_GET_CPP_PTR_FROM_C_OBJECT(core), L_C_TO_STRING(uri), me, L_C_TO_STRING(subject));
-	LinphoneChatRoom *cr = L_INIT(ChatRoom);
-	if (fallback) {
-		// Create a ClientGroupToBasicChatRoom to handle fallback from ClientGroupChatRoom to BasicGroupChatRoom if
-		// only one participant is invited and that it does not support group chat
-		L_SET_CPP_PTR_FROM_C_OBJECT(cr, make_shared<LinphonePrivate::ClientGroupToBasicChatRoom>(cgcr));
-		L_GET_PRIVATE(cgcr)->setCallSessionListener(L_GET_PRIVATE_FROM_C_OBJECT(cr));
-		L_GET_PRIVATE(cgcr)->setChatRoomListener(L_GET_PRIVATE_FROM_C_OBJECT(cr));
-	} else
-		L_SET_CPP_PTR_FROM_C_OBJECT(cr, cgcr);
-	L_GET_PRIVATE(cgcr)->setState(LinphonePrivate::ChatRoom::State::Instantiated);
-	return cr;
-}
 
 LinphoneChatRoom *_linphone_server_group_chat_room_new (LinphoneCore *core, LinphonePrivate::SalCallOp *op) {
 	LinphoneChatRoom *cr = L_INIT(ChatRoom);

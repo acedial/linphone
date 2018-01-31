@@ -64,6 +64,7 @@ public:
 		const string &message
 	) override {
 		L_Q();
+		// TODO: Avoid cast, use capabilities.
 		shared_ptr<ClientGroupChatRoom> cgcr = dynamic_pointer_cast<ClientGroupChatRoom>(chatRoom);
 		if (!cgcr)
 			return;
@@ -76,12 +77,10 @@ public:
 			Core::deleteChatRoom(q->getSharedFromThis());
 			setupCallbacks();
 			LinphoneChatRoom *lcr = L_GET_C_BACK_PTR(q);
-			shared_ptr<AbstractChatRoom> bcr = cgcr->getCore()->onlyGetOrCreateBasicChatRoom(invitedAddresses.front());
+			shared_ptr<AbstractChatRoom> bcr = cgcr->getCore()->getOrCreateBasicChatRoom(
+				ChatRoomId(invitedAddresses.front(), cgcr->getLocalAddress())
+			);
 			L_SET_CPP_PTR_FROM_C_OBJECT(lcr, bcr);
-			bcr->getPrivate()->setState(ChatRoom::State::Instantiated);
-			bcr->getPrivate()->setState(ChatRoom::State::Created);
-			cgcr->getCore()->getPrivate()->insertChatRoom(bcr);
-			cgcr->getCore()->getPrivate()->insertChatRoomWithDb(bcr);
 			return;
 		}
 		cgcr->getPrivate()->onCallSessionStateChanged(session, newState, message);

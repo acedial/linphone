@@ -23,6 +23,8 @@
 #include "chat/chat-room/basic-chat-room.h"
 #include "chat/chat-room/basic-to-client-group-chat-room.h"
 #include "chat/chat-room/chat-room-p.h"
+#include "chat/chat-room/client-group-chat-room-p.h"
+#include "chat/chat-room/client-group-to-basic-chat-room.h"
 #include "chat/chat-room/real-time-text-chat-room.h"
 #include "conference/participant.h"
 #include "core-p.h"
@@ -92,21 +94,60 @@ shared_ptr<AbstractChatRoom> CorePrivate::createBasicChatRoom (
 	return chatRoom;
 }
 
+
 shared_ptr<AbstractChatRoom> CorePrivate::createClientGroupChatRoom (const string &subject, bool fallback) {
 	L_Q();
-	return L_GET_CPP_PTR_FROM_C_OBJECT(
-		_linphone_client_group_chat_room_new(
-			q->getCCore(),
-			linphone_core_get_conference_factory_uri(q->getCCore()),
-			L_STRING_TO_C(subject),
-			fallback ? TRUE : FALSE
-		)
-	);
+	return createClientGroupChatRoom(subject, linphone_core_get_conference_factory_uri(q->getCCore()), fallback);
+}
+
+shared_ptr<AbstractChatRoom> CorePrivate::createClientGroupChatRoom (const string &subject, const string &uri, bool fallback) {
+	L_Q();
+
+	string from;
+	{
+		LinphoneAddress *addr = linphone_address_new(uri.c_str());
+		LinphoneProxyConfig *proxy = linphone_core_lookup_known_proxy(q->getCCore(), addr);
+		linphone_address_unref(addr);
+		if (proxy) {
+			const LinphoneAddress *contactAddr = linphone_proxy_config_get_contact(proxy);
+			if (contactAddr) {
+				char *cFrom = linphone_address_as_string(contactAddr);
+				from = string(cFrom);
+				bctbx_free(cFrom);
+			} else
+				from = L_GET_CPP_PTR_FROM_C_OBJECT(linphone_proxy_config_get_identity_address(proxy))->asString();
+		}
+	}
+
+	shared_ptr<AbstractChatRoom> chatRoom;
+	{
+		shared_ptr<ClientGroupChatRoom> clientGroupChatRoom = make_shared<ClientGroupChatRoom>(
+			q->getSharedFromThis(), uri, IdentityAddress(from), subject
+		);
+		ClientGroupChatRoomPrivate *dClientGroupChatRoom = clientGroupChatRoom->getPrivate();
+
+		if (fallback) {
+			// Create a ClientGroupToBasicChatRoom to handle fallback from ClientGroupChatRoom to BasicGroupChatRoom if
+			// only one participant is invited and that it does not support group chat
+			chatRoom = make_shared<ClientGroupToBasicChatRoom>(clientGroupChatRoom);
+			dClientGroupChatRoom->setCallSessionListener(chatRoom->getPrivate());
+			dClientGroupChatRoom->setChatRoomListener(chatRoom->getPrivate());
+		} else
+			chatRoom = clientGroupChatRoom;
+		dClientGroupChatRoom->setState(ChatRoom::State::Instantiated);
+	}
+
+	noCreatedClientGroupChatRooms[chatRoom.get()] = chatRoom;
+
+	return chatRoom;
 }
 
 void CorePrivate::insertChatRoom (const shared_ptr<AbstractChatRoom> &chatRoom) {
 	L_ASSERT(chatRoom);
 	L_Q();
+
+	// Remove chat room from workaround cache.
+	noCreatedClientGroupChatRooms.erase(chatRoom.get());
 
 	q->deleteChatRoom(chatRoom);
 	chatRooms.push_back(chatRoom);
@@ -187,20 +228,6 @@ shared_ptr<AbstractChatRoom> Core::findOneToOneChatRoom (
 shared_ptr<AbstractChatRoom> Core::createClientGroupChatRoom (const string &subject) {
 	L_D();
 	return d->createClientGroupChatRoom(subject, true);
-}
-
-shared_ptr<AbstractChatRoom> Core::onlyGetOrCreateBasicChatRoom (const IdentityAddress &peerAddress, bool isRtt) {
-	list<shared_ptr<AbstractChatRoom>> chatRooms = findChatRooms(peerAddress);
-	if (!chatRooms.empty())
-		return chatRooms.front();
-
-	const ChatRoomId &chatRoomId = ChatRoomId(peerAddress, getDefaultLocalAddress(getSharedFromThis(), peerAddress));
-	shared_ptr<AbstractChatRoom> chatRoom;
-
-	BasicChatRoom *basicChatRoom = new BasicChatRoom(getSharedFromThis(), chatRoomId);
-	chatRoom.reset(basicChatRoom);
-
-	return chatRoom;
 }
 
 shared_ptr<AbstractChatRoom> Core::getOrCreateBasicChatRoom (const ChatRoomId &chatRoomId, bool isRtt) {

@@ -84,7 +84,9 @@ LinphoneChatRoom *linphone_core_get_chat_room (LinphoneCore *lc, const LinphoneA
 }
 
 LinphoneChatRoom *linphone_core_create_client_group_chat_room (LinphoneCore *lc, const char *subject) {
-	return L_GET_C_BACK_PTR(L_GET_CPP_PTR_FROM_C_OBJECT(lc)->createClientGroupChatRoom(L_C_TO_STRING(subject)));
+	LinphoneChatRoom *chatRoom = L_INIT(ChatRoom);
+	L_SET_CPP_PTR_FROM_C_OBJECT(chatRoom, L_GET_CPP_PTR_FROM_C_OBJECT(lc)->createClientGroupChatRoom(L_C_TO_STRING(subject)));
+	return chatRoom;
 }
 
 LinphoneChatRoom *_linphone_core_create_server_group_chat_room (LinphoneCore *lc, LinphonePrivate::SalCallOp *op) {

@@ -61,6 +61,7 @@ public:
 	void insertChatRoomWithDb (const std::shared_ptr<AbstractChatRoom> &chatRoom);
 	std::shared_ptr<AbstractChatRoom> createBasicChatRoom (const ChatRoomId &chatRoomId, AbstractChatRoom::CapabilitiesMask capabilities);
 	std::shared_ptr<AbstractChatRoom> createClientGroupChatRoom (const std::string &subject, bool fallback = true);
+	std::shared_ptr<AbstractChatRoom> createClientGroupChatRoom (const std::string &subject, const std::string &uri, bool fallback = true);
 	void replaceChatRoom (const std::shared_ptr<AbstractChatRoom> &replacedChatRoom, const std::shared_ptr<AbstractChatRoom> &newChatRoom);
 
 	std::unique_ptr<MainDb> mainDb;
@@ -72,7 +73,11 @@ private:
 	std::shared_ptr<Call> currentCall;
 
 	std::list<std::shared_ptr<AbstractChatRoom>> chatRooms;
+
 	std::unordered_map<ChatRoomId, std::shared_ptr<AbstractChatRoom>> chatRoomsById;
+
+	// Ugly cache to deal with C code.
+	std::unordered_map<AbstractChatRoom *, std::shared_ptr<AbstractChatRoom>> noCreatedClientGroupChatRooms;
 
 	L_DECLARE_PUBLIC(Core);
 };

@@ -219,7 +219,7 @@ bool ClientGroupChatRoom::canHandleParticipants () const {
 }
 
 bool ClientGroupChatRoom::canHandleCpim () const {
-	return true; 
+	return true;
 }
 
 const IdentityAddress &ClientGroupChatRoom::getConferenceAddress () const {
